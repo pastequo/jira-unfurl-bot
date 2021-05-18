@@ -1,5 +1,6 @@
 import os
 import jira
+import consts
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -27,6 +28,9 @@ def got_link(client, payload):
         url = link["url"]
         issue_id = url.split("/")[-1]
         issue = jira_client.issue(issue_id)
+
+        if consts.COMPONENT_PREFIX not in issue.fields.components[0].name.lower():
+            continue
 
         _payload = get_payload(url, issue)
         channel_id = payload["channel"]
