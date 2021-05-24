@@ -29,7 +29,7 @@ def got_link(client, payload):
         issue_id = url.split("/")[-1]
         issue = jira_client.issue(issue_id)
 
-        if consts.COMPONENT_PREFIX not in issue.fields.components[0].name.lower():
+        if issue.fields.project.name != consts.PROJECT_NAME:
             continue
 
         _payload = get_payload(url, issue)

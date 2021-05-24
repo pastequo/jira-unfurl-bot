@@ -1,1 +1,1 @@
-COMPONENT_PREFIX = "assisted-installer"
+PROJECT_NAME = "KNI Management"
