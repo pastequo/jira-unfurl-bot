@@ -31,7 +31,6 @@ def got_link(client, payload):
         url = link["url"]
         issue_id = url.split("/")[-1]
         issue = jira_client.issue(issue_id)
-        print(issue.fields.components[0])
         if issue.fields.project.name != consts.PROJECT_NAME and issue.fields.components[0].name not in consts.COMPONENTS:
             continue
 
