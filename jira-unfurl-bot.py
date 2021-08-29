@@ -9,12 +9,15 @@ app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 JIRA_SERVER = "https://issues.redhat.com"
 
-jira_creds = os.environ.get("JIRA_CREDS", None)
-if jira_creds:
-    jira_user, jira_pass = jira_creds.split(":")
-    jira_client = jira.JIRA(JIRA_SERVER, basic_auth=(jira_user, jira_pass))
-else:
-    jira_user = None
+jira_username = os.environ.get("JIRA_USERNAME", None)
+if jira_username is None:
+    raise ValueError("You must provide JIRA_USERNAME environment variable")
+
+jira_password = os.environ.get("JIRA_PASSWORD", None)
+if jira_password is None:
+    raise ValueError("You must provide JIRA_PASSWORD environment variable")
+
+jira_client = jira.JIRA(JIRA_SERVER, basic_auth=(jira_username, jira_password))
 
 # Check liveness
 @app.event("app_mention")
