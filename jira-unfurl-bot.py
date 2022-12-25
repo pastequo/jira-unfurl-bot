@@ -7,6 +7,12 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 JIRA_SERVER = "https://issues.redhat.com"
+ISSUE_TYPE_TO_COLOR = {
+    "Epic": "#4c00b0",
+    "Task" : "#1c4966",
+    "Bug": "#7c0a02",
+    "Story": "#3bb143",
+}
 
 jira_access_token = os.environ.get("JIRA_ACCESS_TOKEN")
 if jira_access_token is None:
@@ -24,10 +30,17 @@ def event_test(say):
 def got_link(client, payload):
     for link in payload["links"]:
         url = link["url"]
-        issue_id = url.split("/")[-1]
-        issue = jira_client.issue(issue_id)
+        if "browse" in url:
+            issue_id = url.split("/")[-1]
+            issue = jira_client.issue(issue_id)
 
-        _payload = get_payload(url, issue)
+            _payload = get_issue_payload(issue, url)
+        elif "versions" in url:
+            version_id = url.split("/")[-1]
+            version = jira_client.version(version_id)
+
+            _payload = get_version_payload(version, url)
+
         channel_id = payload["channel"]
         client.chat_unfurl(
             channel=channel_id,
@@ -36,27 +49,41 @@ def got_link(client, payload):
         )
 
 
-def get_payload(url, issue):
-    key = issue.key
-    status = issue.fields.status.name
-    summary = issue.fields.summary
-    unfurl_text = f":jira: *{key}* [*{status}*] : {summary}"
-
-    payload = {
+def get_version_payload(version, url):
+    release_info = f"Released at {version.releaseDate}" if version.released else "Unreleased"
+    description = version.raw.get("description", "[No description given]")
+    return {
         url: {
-            "color": "#025BA6",
+            "color": "#ff8b3d",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": unfurl_text,
+                        "text": f":jira: *{version.name}* [*{release_info}*] : {description}",
                     }
                 },
             ]
         }
     }
-    return payload
+
+
+def get_issue_payload(issue, url):
+    color = ISSUE_TYPE_TO_COLOR.get(issue.fields.issuetype.name, "#025BA6")
+    return {
+        url: {
+            "color": color,
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f":jira: *{issue.key}* [*{issue.fields.status.name}*] : {issue.fields.summary}",
+                    }
+                },
+            ]
+        }
+    }
 
 if __name__ == "__main__":
     SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN")).start()
