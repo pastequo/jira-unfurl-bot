@@ -1,5 +1,6 @@
 import os
 import jira
+from jira.resources import Version
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -13,6 +14,20 @@ ISSUE_TYPE_TO_COLOR = {
     "Bug": "#7c0a02",
     "Story": "#3bb143",
 }
+ISSUE_TYPE_TO_ICON = {
+    "Epic": "jiraepic",
+    "Bug": "jirabug",
+    "Task": "jiratask",
+    "Story": "jirastory",
+}
+ISSUE_TYPE_TO_PRIORITY = {
+    "Epic": 1,
+    "Bug": 2,
+    "Story": 3,
+    "Task": 4,
+}
+MAX_SHOWN_ISSUES_IN_VERSION = 10
+
 
 jira_access_token = os.environ.get("JIRA_ACCESS_TOKEN")
 if jira_access_token is None:
@@ -41,17 +56,37 @@ def got_link(client, payload):
 
             _payload = get_version_payload(version, url)
 
-        channel_id = payload["channel"]
         client.chat_unfurl(
-            channel=channel_id,
+            channel=payload["channel"],
             ts=payload["message_ts"],
             unfurls=_payload,
         )
 
 
-def get_version_payload(version, url):
+def get_version_payload(version: Version, url: str):
     release_info = f"Released at {version.releaseDate}" if version.released else "Unreleased"
-    description = version.raw.get("description", "[No description given]")
+
+    text = f":jira: *{version.name}* [*{release_info}*]"
+
+    description = version.raw.get("description")
+    if description is not None:
+        text += f" : {description}"
+
+    jql_filter = f'project = {version.projectId} AND fixVersion = "{version.name}"'
+    if jira_client.version_count_related_issues(version.id)["issuesFixedCount"] > MAX_SHOWN_ISSUES_IN_VERSION:
+        # if too much issues are linked to the version, show only bugs and epics
+        jql_filter += " AND issuetype in (Bug, Epic)"
+
+    linked_issues = jira_client.search_issues(jql_str=jql_filter)
+    linked_issues.sort(key=lambda issue: ISSUE_TYPE_TO_PRIORITY[issue.fields.issuetype.name])
+
+    for issue in linked_issues[:MAX_SHOWN_ISSUES_IN_VERSION]:
+        icon = ISSUE_TYPE_TO_ICON.get(issue.fields.issuetype.name, "jira-1992")
+        text += f"\n\t\t:{icon}: <{issue.permalink()}|{issue.fields.summary}>"
+
+    if len(linked_issues) > MAX_SHOWN_ISSUES_IN_VERSION:
+        text += f"\n\t\t... ({len(linked_issues) - MAX_SHOWN_ISSUES_IN_VERSION} more epics/bugs to show. <{url}|See more>)"
+
     return {
         url: {
             "color": "#ff8b3d",
@@ -60,10 +95,10 @@ def get_version_payload(version, url):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f":jira: *{version.name}* [*{release_info}*] : {description}",
+                        "text": text,
                     }
                 },
-            ]
+            ],
         }
     }
 
