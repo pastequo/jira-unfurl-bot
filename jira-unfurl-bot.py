@@ -75,7 +75,7 @@ def get_version_payload(version: Version, url: str):
     jql_filter = f'project = {version.projectId} AND fixVersion = "{version.name}"'
     if jira_client.version_count_related_issues(version.id)["issuesFixedCount"] > MAX_SHOWN_ISSUES_IN_VERSION:
         # if too much issues are linked to the version, show only bugs and epics
-        jql_filter += " AND issuetype in (Bug, Epic)"
+        jql_filter += " AND issuetype in (Bug, Epic, Story)"
 
     linked_issues = jira_client.search_issues(jql_str=jql_filter)
     linked_issues.sort(key=lambda issue: ISSUE_TYPE_TO_PRIORITY[issue.fields.issuetype.name])
