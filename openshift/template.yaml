@@ -1,0 +1,70 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: jira-unfurl-bot
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: jira-unfurl-bot
+  spec:
+    selector:
+      matchLabels:
+        app: jira-unfurl-bot
+    replicas: ${{NUMBER_OF_REPLICAS}}
+    template:
+      metadata:
+        labels:
+          app: jira-unfurl-bot
+      spec:
+        containers:
+          - name: jira-unfurl-bot
+            image: ${IMAGE_NAME}:${IMAGE_TAG}
+            imagePullPolicy: Always
+            resources:
+              limits:
+                cpu: ${{CPU_LIMIT}}
+                memory: ${MEMORY_LIMIT}
+              requests:
+                cpu: ${CPU_REQUEST}
+                memory: ${MEMORY_REQUEST}
+            env:
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: ${JIRA_UNFURL_BOT_SLACK_BOT_TOKEN}
+                  name: ${JIRA_UNFURL_BOT_SECRETS_NAME}
+            - name: SLACK_APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: ${JIRA_UNFURL_BOT_SLACK_APP_TOKEN}
+                  name: ${JIRA_UNFURL_BOT_SECRETS_NAME}
+            - name: JIRA_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: ${JIRA_UNFURL_BOT_JIRA_ACCESS_TOKEN}
+                  name: ${JIRA_UNFURL_BOT_SECRETS_NAME}
+
+parameters:
+- name: IMAGE_NAME
+  value: "quay.io/app-sre/jira-unfurl-bot"
+- name: IMAGE_TAG
+  required: true
+- name: CPU_LIMIT
+  value: "500m"
+- name: MEMORY_LIMIT
+  value: "2000Mi"
+- name: CPU_REQUEST
+  value: "300m"
+- name: MEMORY_REQUEST
+  value: "400Mi"
+- name: JIRA_UNFURL_BOT_SECRETS_NAME
+  value: "jira-unfurl-bot-secrets"
+- name: JIRA_UNFURL_BOT_SLACK_BOT_TOKEN 
+  value: "slack-bot-token"
+- name: JIRA_UNFURL_BOT_SLACK_APP_TOKEN
+  value: "slack-app-token"
+- name: JIRA_UNFURL_BOT_JIRA_ACCESS_TOKEN
+  value: "jira-access-token"
+- name: NUMBER_OF_REPLICAS
+  value: "1"
