@@ -2,12 +2,17 @@
 
 set -xeuo pipefail
 
-CONTAINER_CMD="docker"
+if command -v podman
+then
+    CONTAINER_CMD="podman"
+else
+    CONTAINER_CMD="docker"
+fi
 export CONTAINER_CMD
 echo "Using ${CONTAINER_CMD} as container engine..."
 
 export CONTAINER_BUILD_EXTRA_PARAMS=${CONTAINER_BUILD_EXTRA_PARAMS:-"--no-cache"}
-export JIRA_UNFURL_BOT_IMAGE=${JIRA_UNFURL_BOT_IMAGE:-"quay.io/rh-ee-ovishlit/jira-unfurl-bot"}
+export JIRA_UNFURL_BOT_IMAGE=${JIRA_UNFURL_BOT_IMAGE:-"quay.io/app-sre/jira-unfurl-bot"}
 
 # Tag with the current commit sha
 JIRA_UNFURL_BOT_TAG="$(git rev-parse --short=7 HEAD)"
