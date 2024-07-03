@@ -1,3 +1,4 @@
+import logging
 import os
 import jira
 from jira.resources import Version
@@ -45,24 +46,33 @@ def event_test(say):
 def got_link(client, payload):
     for link in payload["links"]:
         url = link["url"]
+        logging.info(f"Link shared: {url}")
         _payload = None
-        if "browse" in url:
-            issue_id = url.split("/")[-1]
-            issue = jira_client.issue(issue_id)
+        try:
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.split('/')
+            
+            if 'browse' in path_parts:
+                issue_id = path_parts[-1]
+                issue = jira_client.issue(issue_id)
+                _payload = get_issue_payload(issue, url)
+            elif 'versions' in path_parts:
+                version_id = path_parts[-1]
+                version = jira_client.version(version_id)
+                _payload = get_version_payload(version, url)
+            else:
+                logging.warning(f"Unrecognized Jira URL structure: {url}")
 
-            _payload = get_issue_payload(issue, url)
-        elif "versions" in url:
-            version_id = url.split("/")[-1]
-            version = jira_client.version(version_id)
-
-            _payload = get_version_payload(version, url)
-
-        if _payload is not None:
-            client.chat_unfurl(
-                channel=payload["channel"],
-                ts=payload["message_ts"],
-                unfurls=_payload,
-            )
+            if _payload is not None:
+                client.chat_unfurl(
+                    channel=payload["channel"],
+                    ts=payload["message_ts"],
+                    unfurls=_payload,
+                )
+            else:
+                logging.info(f"No payload generated for URL: {url}")
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
 
 
 def get_version_payload(version: Version, url: str):
