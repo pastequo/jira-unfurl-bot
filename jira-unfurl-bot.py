@@ -1,8 +1,9 @@
 import logging
 import os
+from urllib.parse import urlparse
+
 import jira
 from jira.resources import Version
-
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
