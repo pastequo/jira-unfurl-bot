@@ -1,7 +1,9 @@
+import logging
 import os
+from urllib.parse import urlparse
+
 import jira
 from jira.resources import Version
-
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
@@ -45,22 +47,33 @@ def event_test(say):
 def got_link(client, payload):
     for link in payload["links"]:
         url = link["url"]
-        if "browse" in url:
-            issue_id = url.split("/")[-1]
-            issue = jira_client.issue(issue_id)
+        logging.info(f"Link shared: {url}")
+        _payload = None
+        try:
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.split('/')
+            
+            if 'browse' in path_parts:
+                issue_id = path_parts[-1]
+                issue = jira_client.issue(issue_id)
+                _payload = get_issue_payload(issue, url)
+            elif 'versions' in path_parts:
+                version_id = path_parts[-1]
+                version = jira_client.version(version_id)
+                _payload = get_version_payload(version, url)
+            else:
+                logging.warning(f"Unrecognized Jira URL structure: {url}")
 
-            _payload = get_issue_payload(issue, url)
-        elif "versions" in url:
-            version_id = url.split("/")[-1]
-            version = jira_client.version(version_id)
-
-            _payload = get_version_payload(version, url)
-
-        client.chat_unfurl(
-            channel=payload["channel"],
-            ts=payload["message_ts"],
-            unfurls=_payload,
-        )
+            if _payload is not None:
+                client.chat_unfurl(
+                    channel=payload["channel"],
+                    ts=payload["message_ts"],
+                    unfurls=_payload,
+                )
+            else:
+                logging.info(f"No payload generated for URL: {url}")
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
 
 
 def get_version_payload(version: Version, url: str):
@@ -78,11 +91,11 @@ def get_version_payload(version: Version, url: str):
         jql_filter += " AND issuetype in (Bug, Epic, Story)"
 
     linked_issues = jira_client.search_issues(jql_str=jql_filter)
-    linked_issues.sort(key=lambda issue: ISSUE_TYPE_TO_PRIORITY[issue.fields.issuetype.name])
+    linked_issues.sort(key=lambda issue: ISSUE_TYPE_TO_PRIORITY[issue['fields']['issuetype']['name']])
 
     for issue in linked_issues[:MAX_SHOWN_ISSUES_IN_VERSION]:
-        icon = ISSUE_TYPE_TO_ICON.get(issue.fields.issuetype.name, "jira-1992")
-        text += f"\n\t\t:{icon}: <{issue.permalink()}|{issue.fields.summary}>"
+        icon = ISSUE_TYPE_TO_ICON.get(issue['fields']['issuetype']['name'], "jira-1992")
+        text += f"\n\t\t:{icon}: <{issue['permalink']()}|{issue['fields']['summary']}>"
 
     if len(linked_issues) > MAX_SHOWN_ISSUES_IN_VERSION:
         text += f"\n\t\t... ({len(linked_issues) - MAX_SHOWN_ISSUES_IN_VERSION} more epics/bugs to show. <{url}|See more>)"
