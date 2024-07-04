@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from urllib.parse import urlparse
 
 import jira
@@ -8,6 +9,17 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 JIRA_SERVER = "https://issues.redhat.com"
 ISSUE_TYPE_TO_COLOR = {
@@ -47,7 +59,7 @@ def event_test(say):
 def got_link(client, payload):
     for link in payload["links"]:
         url = link["url"]
-        logging.info(f"Link shared: {url}")
+        logger.info(f"Link shared: {url}")
         _payload = None
         try:
             parsed_url = urlparse(url)
@@ -62,7 +74,7 @@ def got_link(client, payload):
                 version = jira_client.version(version_id)
                 _payload = get_version_payload(version, url)
             else:
-                logging.warning(f"Unrecognized Jira URL structure: {url}")
+                logger.warning(f"Unrecognized Jira URL structure: {url}")
 
             if _payload is not None:
                 client.chat_unfurl(
@@ -71,9 +83,9 @@ def got_link(client, payload):
                     unfurls=_payload,
                 )
             else:
-                logging.info(f"No payload generated for URL: {url}")
+                logger.info(f"No payload generated for URL: {url}")
         except Exception as e:
-            logging.error(f"Error processing URL {url}: {str(e)}")
+            logger.error(f"Error processing URL {url}: {str(e)}")
 
 
 def get_version_payload(version: Version, url: str):
